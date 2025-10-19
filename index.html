@@ -47,9 +47,12 @@ header{display:flex;align-items:center;gap:16px;margin-bottom:20px;}
 .cards{padding:14px;display:none;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;background:#fff;}
 .section.open .cards{display:grid;animation:fadecards .3s ease;}
 @keyframes fadecards{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
-.card{background:#fff;border-radius:12px;padding:10px;box-shadow:0 3px 10px rgba(0,0,0,0.05);display:flex;flex-direction:column;gap:8px;cursor:move;touch-action:none;}
+.card{background:#fff;border-radius:12px;padding:10px;box-shadow:0 3px 10px rgba(0,0,0,0.05);display:flex;flex-direction:column;gap:8px;}
 .card:hover{box-shadow:0 0 8px rgba(255,175,200,0.5);}
-.card.dragging-card{opacity:0.4;transform:scale(0.95);}
+.move-buttons{display:flex;gap:4px;justify-content:center;margin-top:4px;}
+.move-btn{padding:4px 12px;border-radius:6px;border:1px solid #e0e0e0;background:#fff;cursor:pointer;font-size:16px;transition:all .2s;}
+.move-btn:active{transform:scale(0.95);background:#f0f0f0;}
+.move-btn:disabled{opacity:0.3;cursor:not-allowed;}
 .thumb{width:100%;height:200px;border-radius:10px;overflow:hidden;background:#fafafa;display:flex;align-items:center;justify-content:center;}
 .thumb img{width:100%;height:100%;object-fit:cover;}
 .code{font-weight:700;color:#c64d6f;font-size:14px;}
@@ -121,7 +124,7 @@ header{display:flex;align-items:center;gap:16px;margin-bottom:20px;}
 
 <script>
 // 🔒🔒🔒 PASSWORD - CAMBIA QUI! 🔒🔒🔒
-const PASSWORD_GENERATORE = "cleopatra";
+const PASSWORD_GENERATORE = "eleonora2025";
 // 🔒🔒🔒 PASSWORD - CAMBIA QUI! 🔒🔒🔒
 
 let sections=[];
@@ -191,128 +194,48 @@ function render(){
     sec.items.forEach((it, index)=>{
       const c=document.createElement('div');
       c.className='card';
-      c.draggable=true;
       c.dataset.itemId=it.id;
-      c.innerHTML=`<div class="thumb"><img src="${it.img}"></div><div class="code">${it.code}</div><div class="note" contenteditable="true">${it.note||'Nota...'}</div><div class="controls"><label class="fav"><input type="checkbox" ${it.fav?'checked':''}> 💕</label><input type="number" value="${it.qty}" min="0" class="qty"></div><button class="btn-ghost del-photo">🗑️ Elimina foto</button>`;
+      c.innerHTML=`
+        <div class="thumb"><img src="${it.img}"></div>
+        <div class="code">${it.code}</div>
+        <div class="note" contenteditable="true">${it.note||'Nota...'}</div>
+        <div class="controls">
+          <label class="fav"><input type="checkbox" ${it.fav?'checked':''}> 💕</label>
+          <input type="number" value="${it.qty}" min="0" class="qty">
+        </div>
+        <div class="move-buttons">
+          <button class="move-btn move-up" ${index===0?'disabled':''}>⬆️</button>
+          <button class="move-btn move-down" ${index===sec.items.length-1?'disabled':''}>⬇️</button>
+        </div>
+        <button class="btn-ghost del-photo">🗑️ Elimina foto</button>
+      `;
       grid.appendChild(c);
       
       c.querySelector('.note').oninput=e=>{it.note=e.target.textContent;};
       c.querySelector('input[type=checkbox]').onchange=e=>{it.fav=e.target.checked;};
       c.querySelector('.qty').onchange=e=>{it.qty=parseInt(e.target.value)||0;};
-      c.querySelector('.del-photo').onclick=()=>{if(confirm('Vuoi eliminare questa foto?')){sec.items=sec.items.filter(x=>x.id!==it.id);render();}};
-      
-      // 🆕 DRAG AND DROP PER LE FOTO
-      c.addEventListener('dragstart', (e) => {
-        c.classList.add('dragging-card');
-        e.dataTransfer.effectAllowed = 'move';
-      });
-      
-      c.addEventListener('dragend', (e) => {
-        c.classList.remove('dragging-card');
-        // Riordina l'array items in base all'ordine visuale
-        const cards = [...grid.querySelectorAll('.card')];
-        sec.items = cards.map(card => {
-          const itemId = card.dataset.itemId;
-          return sec.items.find(item => item.id === itemId);
-        });
-      });
-      
-      c.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        const draggingCard = grid.querySelector('.dragging-card');
-        if (!draggingCard || draggingCard === c) return;
-        
-        const rect = c.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
-        
-        if (e.clientY < midY) {
-          grid.insertBefore(draggingCard, c);
-        } else {
-          grid.insertBefore(draggingCard, c.nextSibling);
+      c.querySelector('.del-photo').onclick=()=>{
+        if(confirm('Vuoi eliminare questa foto?')){
+          sec.items=sec.items.filter(x=>x.id!==it.id);
+          render();
         }
-      });
+      };
       
-      // 🆕 TOUCH SUPPORT per mobile
-      let touchStartY = 0;
-      let touchStartX = 0;
-      let isDragging = false;
-      let clone = null;
-      
-      c.addEventListener('touchstart', (e) => {
-        // Non iniziare drag se si sta interagendo con input/button
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.closest('.note')) {
-          return;
+      // 🆕 SPOSTA SU
+      c.querySelector('.move-up').onclick=()=>{
+        if(index > 0){
+          [sec.items[index], sec.items[index-1]] = [sec.items[index-1], sec.items[index]];
+          render();
         }
-        
-        touchStartY = e.touches[0].clientY;
-        touchStartX = e.touches[0].clientX;
-        
-        setTimeout(() => {
-          if (!isDragging) {
-            isDragging = true;
-            c.classList.add('dragging-card');
-            
-            // Crea clone visuale
-            clone = c.cloneNode(true);
-            clone.style.position = 'fixed';
-            clone.style.zIndex = '10000';
-            clone.style.pointerEvents = 'none';
-            clone.style.width = c.offsetWidth + 'px';
-            clone.style.opacity = '0.8';
-            document.body.appendChild(clone);
-            updateClonePosition(e.touches[0]);
-          }
-        }, 200); // Long press di 200ms
-      });
+      };
       
-      c.addEventListener('touchmove', (e) => {
-        if (!isDragging) return;
-        e.preventDefault();
-        
-        updateClonePosition(e.touches[0]);
-        
-        // Trova la card sotto il dito
-        const touch = e.touches[0];
-        const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-        const cardBelow = elementBelow?.closest('.card');
-        
-        if (cardBelow && cardBelow !== c && cardBelow.parentElement === grid) {
-          const rect = cardBelow.getBoundingClientRect();
-          const midY = rect.top + rect.height / 2;
-          
-          if (touch.clientY < midY) {
-            grid.insertBefore(c, cardBelow);
-          } else {
-            grid.insertBefore(c, cardBelow.nextSibling);
-          }
+      // 🆕 SPOSTA GIÙ
+      c.querySelector('.move-down').onclick=()=>{
+        if(index < sec.items.length - 1){
+          [sec.items[index], sec.items[index+1]] = [sec.items[index+1], sec.items[index]];
+          render();
         }
-      });
-      
-      c.addEventListener('touchend', (e) => {
-        if (isDragging) {
-          isDragging = false;
-          c.classList.remove('dragging-card');
-          
-          if (clone) {
-            clone.remove();
-            clone = null;
-          }
-          
-          // Salva il nuovo ordine
-          const cards = [...grid.querySelectorAll('.card')];
-          sec.items = cards.map(card => {
-            const itemId = card.dataset.itemId;
-            return sec.items.find(item => item.id === itemId);
-          });
-        }
-      });
-      
-      function updateClonePosition(touch) {
-        if (clone) {
-          clone.style.left = (touch.clientX - c.offsetWidth / 2) + 'px';
-          clone.style.top = (touch.clientY - 50) + 'px';
-        }
-      }
+      };
     });
     
     s.querySelector('.head').addEventListener('click',e=>{if(e.target.tagName==='BUTTON'&&!e.target.classList.contains('del'))return;s.classList.toggle('open');});
