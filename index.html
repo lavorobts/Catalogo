@@ -129,6 +129,7 @@ const PASSWORD_GENERATORE = "eleonora2025";
 
 let sections=[];
 let logoData=null;
+let openSections=new Set(); // 🆕 Memorizza quali sezioni sono aperte
 const main=document.getElementById('mainContent');
 
 document.getElementById('loginBtn').onclick=checkPassword;
@@ -188,6 +189,12 @@ function render(){
   main.innerHTML='';
   sections.forEach(sec=>{
     const s=document.createElement('div');s.className='section';s.draggable=true;
+    
+    // 🆕 Ripristina lo stato aperto/chiuso
+    if(openSections.has(sec.id)){
+      s.classList.add('open');
+    }
+    
     s.innerHTML=`<div class="head"><h3>${sec.name} (${sec.items.length}) <button class="del" title="Elimina sezione">🗑️</button></h3><span>▼</span><button class="btn-ghost" data-id="${sec.id}">Aggiungi foto</button></div><div class="cards"></div>`;
     const grid=s.querySelector('.cards');
     
@@ -238,9 +245,20 @@ function render(){
       };
     });
     
-    s.querySelector('.head').addEventListener('click',e=>{if(e.target.tagName==='BUTTON'&&!e.target.classList.contains('del'))return;s.classList.toggle('open');});
+    s.querySelector('.head').addEventListener('click',e=>{
+      if(e.target.tagName==='BUTTON'&&!e.target.classList.contains('del'))return;
+      s.classList.toggle('open');
+      
+      // 🆕 Memorizza lo stato
+      if(s.classList.contains('open')){
+        openSections.add(sec.id);
+      } else {
+        openSections.delete(sec.id);
+      }
+    });
+    
     s.querySelector('.btn-ghost').onclick=()=>addPhoto(sec);
-    s.querySelector('.del').onclick=()=>{if(confirm('Vuoi eliminare la sezione "'+sec.name+'"?')){sections=sections.filter(x=>x.id!==sec.id);render();}};
+    s.querySelector('.del').onclick=()=>{if(confirm('Vuoi eliminare la sezione "'+sec.name+'"?')){sections=sections.filter(x=>x.id!==sec.id);openSections.delete(sec.id);render();}};
     s.addEventListener('dragstart',()=>s.classList.add('dragging'));
     s.addEventListener('dragend',()=>{s.classList.remove('dragging');});
     main.appendChild(s);
